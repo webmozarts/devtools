@@ -1,0 +1,28 @@
+---
+
+include:
+    -   project: "webmozarts/gitlab-ci-templates"
+        file: "workflow.yml"
+    -   project: "webmozarts/gitlab-ci-templates"
+        file: "rules.yml"
+    -   project: "webmozarts/gitlab-ci-templates"
+        file: "mr-title.yml"
+
+stages:
+    - test
+
+# Run the install script on the cloud environments' platform, twice, so a change that
+# breaks Ubuntu or the skip checks fails here rather than in every cloud session. The
+# docker-sandbox image build covers Debian.
+test:install-tools:
+    image: ubuntu:24.04
+    script:
+        - ./test-install-tools.sh
+    stage: test
+    rules:
+        -   changes:
+                - install-tools.sh
+                - test-install-tools.sh
+                - .gitlab-ci.yml
+        -   !reference [.rules, run_if_main]
+    needs: []
