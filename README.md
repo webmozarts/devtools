@@ -31,7 +31,7 @@ Both download the script from the public GitHub mirror of this repository,
 - The cloud setup script downloads it from `main` directly:
 
   ```bash
-  curl --proto '=https' --tlsv1.2 -fsSL --retry 3 \
+  curl --proto '=https' --tlsv1.2 -fsSL --retry 3 --connect-timeout 20 --max-time 60 \
       https://raw.githubusercontent.com/webmozarts/devtools/refs/heads/main/install-tools.sh \
       -o /tmp/install-tools.sh
   bash /tmp/install-tools.sh
