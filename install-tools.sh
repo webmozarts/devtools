@@ -72,11 +72,13 @@ step() {
 }
 
 # Retries transient failures, but not a 404: a version that doesn't exist should fail at
-# once. Always download to a file, never into a pipe, because a retry after a partial
-# transfer would append a second copy to what the pipe already read.
+# once. A transfer that stalls (under 1 kB/s for 30 seconds) counts as transient. Always
+# download to a file, never into a pipe, because a retry after a partial transfer would
+# append a second copy to what the pipe already read.
 fetch() {
     step "downloading $1"
-    curl --proto '=https' --tlsv1.2 -fsSL --retry 3 --retry-connrefused "$1" -o "$2"
+    curl --proto '=https' --tlsv1.2 -fsSL --retry 3 --retry-connrefused \
+        --connect-timeout 20 --speed-limit 1000 --speed-time 30 "$1" -o "$2"
 }
 
 # Succeeds when the output of a command matches a pattern, e.g.
@@ -96,12 +98,27 @@ installed() {
     output_matches '^install ok installed$' dpkg-query -W -f='${Status}' "$1"
 }
 
+# Without these limits, a mirror that stops sending data stalls apt with no error until
+# the cloud's setup time limit kills the script.
+APT_OPTIONS=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+
 apt_updated=false
 apt_update() {
-    if [ "${apt_updated}" = false ]; then
-        apt-get update
-        apt_updated=true
+    local attempt
+    if [ "${apt_updated}" = true ]; then
+        return
     fi
+    for attempt in 1 2 3; do
+        step "apt-get update (attempt ${attempt} of 3)"
+        # Error-Mode=any makes a list that failed to download fail the command, so it is
+        # retried instead of leaving apt without that list.
+        if timeout 120 apt-get "${APT_OPTIONS[@]}" -o APT::Update::Error-Mode=any update; then
+            apt_updated=true
+            return
+        fi
+    done
+    echo "install-tools: apt-get update failed 3 times" >&2
+    exit 1
 }
 
 missing=()
@@ -113,7 +130,7 @@ done
 step "apt packages"
 if [ "${#missing[@]}" -gt 0 ]; then
     apt_update
-    apt-get install -y "${missing[@]}"
+    apt-get "${APT_OPTIONS[@]}" install -y "${missing[@]}"
 fi
 
 step "Node ${NODE_MAJOR}"
@@ -135,7 +152,7 @@ else
         echo "install-tools: found neither nodejs-${NODE_MAJOR} in apt nor /opt/node${NODE_MAJOR}" >&2
         exit 1
     fi
-    apt-get install -y "nodejs-${NODE_MAJOR}" npm
+    apt-get "${APT_OPTIONS[@]}" install -y "nodejs-${NODE_MAJOR}" npm
 fi
 
 step "just ${JUST_VERSION}"
