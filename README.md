@@ -40,8 +40,8 @@ Both download the script from the public GitHub mirror of this repository,
 Always write `refs/heads/main`, not a bare `main`. A bare `main` resolves to a tag named
 `main` first, if someone ever creates one.
 
-The setup itself is documented in docker-sandbox (`kits/baseline/README.md`, "Cloud
-environments").
+The full setup of a cloud environment, with its log and troubleshooting, is documented
+in Notion: [Claude Code Cloud Sessions](https://app.notion.com/p/41bcd75c429581c6879fcf1f2f1ac78a).
 
 ## Node in the cloud
 
