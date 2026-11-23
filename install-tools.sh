@@ -66,11 +66,16 @@ esac
 tmp="$(mktemp -d)"
 trap 'rm -rf "${tmp}"' EXIT
 
+# Names the step that runs, so a log that stops shows where it stopped.
+step() {
+    echo "install-tools: $*"
+}
+
 # Retries transient failures, but not a 404: a version that doesn't exist should fail at
 # once. Always download to a file, never into a pipe, because a retry after a partial
 # transfer would append a second copy to what the pipe already read.
 fetch() {
-    echo "install-tools: downloading $1"
+    step "downloading $1"
     curl --proto '=https' --tlsv1.2 -fsSL --retry 3 --retry-connrefused "$1" -o "$2"
 }
 
@@ -105,11 +110,13 @@ for package in "${APT_PACKAGES[@]}"; do
         missing+=("${package}")
     fi
 done
+step "apt packages"
 if [ "${#missing[@]}" -gt 0 ]; then
     apt_update
     apt-get install -y "${missing[@]}"
 fi
 
+step "Node ${NODE_MAJOR}"
 # Node and npm. The image installs them from the Docker Hardened Images apt repository
 # its base configures, which carries one signed package per Node major. The cloud image
 # ships its own build of each major under /opt/node<major> instead, so there is nothing
@@ -131,12 +138,14 @@ else
     apt-get install -y "nodejs-${NODE_MAJOR}" npm
 fi
 
+step "just ${JUST_VERSION}"
 if ! output_matches "^just ${JUST_VERSION}\$" just --version; then
     fetch "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-${rust_arch}-unknown-linux-musl.tar.gz" \
         "${tmp}/just.tar.gz"
     tar -xzf "${tmp}/just.tar.gz" -C /usr/local/bin just
 fi
 
+step "glab ${GLAB_VERSION}"
 if ! output_matches "^glab ${GLAB_VERSION} " glab --version; then
     fetch "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_${arch}.deb" \
         "${tmp}/glab.deb"
@@ -144,6 +153,7 @@ if ! output_matches "^glab ${GLAB_VERSION} " glab --version; then
     apt-get install -y "${tmp}/glab.deb"
 fi
 
+step "yq ${YQ_VERSION}"
 # mikefarah's yq. Ubuntu's `yq` package is a different tool with a different syntax.
 if ! output_matches "version v${YQ_VERSION}\$" yq --version; then
     fetch "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_${arch}" \
@@ -151,6 +161,7 @@ if ! output_matches "version v${YQ_VERSION}\$" yq --version; then
     install -m 0755 "${tmp}/yq" /usr/local/bin/yq
 fi
 
+step "sbx ${SBX_VERSION}"
 # The CLI only: no sbx daemon runs here, so `sbx create` and friends stay on the host.
 # Name the architecture in the asset: the unsuffixed tarball is amd64 only.
 if ! output_matches "^sbx version v${SBX_VERSION} " sbx version; then
@@ -160,6 +171,7 @@ if ! output_matches "^sbx version v${SBX_VERSION} " sbx version; then
     install -m 0755 "${tmp}/sbx" /usr/local/bin/sbx
 fi
 
+step "AWS CLI"
 # The AWS CLI v2 at its current release, deliberately unpinned (docker-sandbox ADR 022).
 # Installed only when missing, so a warm cloud container keeps the release it first got.
 #
@@ -174,6 +186,7 @@ if ! command -v aws >/dev/null; then
     bash "${tmp}/aws-install.sh" --system
 fi
 
+step "Ansible collections"
 # HOME=/root, because the image sets HOME=/home/agent, and a root-owned directory left
 # there breaks the agent's tools.
 HOME=/root ansible-galaxy collection install "${ANSIBLE_COLLECTIONS[@]}"
