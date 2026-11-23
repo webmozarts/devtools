@@ -137,11 +137,13 @@ if ! output_matches "^just ${JUST_VERSION}\$" just --version; then
     tar -xzf "${tmp}/just.tar.gz" -C /usr/local/bin just
 fi
 
+# From the release archive, not the .deb: installing a .deb needs `apt-get update`
+# first, which a session that only lacks glab would otherwise run just for this.
 if ! output_matches "^glab ${GLAB_VERSION} " glab --version; then
-    fetch "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_${arch}.deb" \
-        "${tmp}/glab.deb"
-    apt_update
-    apt-get install -y "${tmp}/glab.deb"
+    fetch "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_${arch}.tar.gz" \
+        "${tmp}/glab.tar.gz"
+    tar -xzf "${tmp}/glab.tar.gz" -C "${tmp}" bin/glab
+    install -m 0755 "${tmp}/bin/glab" /usr/local/bin/glab
 fi
 
 # mikefarah's yq. Ubuntu's `yq` package is a different tool with a different syntax.
