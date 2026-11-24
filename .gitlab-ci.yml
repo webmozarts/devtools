@@ -1,11 +1,11 @@
 ---
 
 include:
-    -   project: "webmozarts/gitlab-ci-templates"
+    -   project: "webmozarts/libraries/gitlab/ci-templates"
         file: "workflow.yml"
-    -   project: "webmozarts/gitlab-ci-templates"
+    -   project: "webmozarts/libraries/gitlab/ci-templates"
         file: "rules.yml"
-    -   project: "webmozarts/gitlab-ci-templates"
+    -   project: "webmozarts/libraries/gitlab/ci-templates"
         file: "mr-title.yml"
 
 stages:
